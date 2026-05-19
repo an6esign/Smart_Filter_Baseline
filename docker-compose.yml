@@ -1,0 +1,12 @@
+services:
+
+  smart_filter_api:
+
+    build: .
+
+    container_name: smart_filter_api
+
+    ports:
+      - "8001:8001"
+
+    restart: always
