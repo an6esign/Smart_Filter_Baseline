@@ -30,6 +30,14 @@ from app.predictors.category_predictor import (
     predict_category
 )
 
+from app.predictors.has_age_predictor import (
+    predict_has_age
+)
+
+from app.predictors.age_predictor import (
+    predict_age
+)
+
 from app.predictors.rubert_fear_predictor import predict_rubert_fear
 
 
@@ -118,6 +126,27 @@ def predict(request: PredictRequest):
     category_result = predict_category(
         text
     )
+    
+# =========================
+# AGE
+# =========================
+
+    has_age_result = predict_has_age(
+        text
+    )
+
+    if has_age_result["prediction"] == 1:
+
+        age_result = predict_age(
+            text
+        )
+
+    else:
+
+        age_result = {
+            "age": "unknown",
+            "confidence": 0.0
+        }
 
     # =========================
     # RESPONSE
@@ -155,6 +184,17 @@ def predict(request: PredictRequest):
 
             "format_type": (
                 format_result
+            )
+        },
+        
+        "age": {
+
+            "has_age": (
+                has_age_result
+            ),
+
+            "age": (
+                age_result
             )
         },
 

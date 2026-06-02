@@ -63,6 +63,13 @@ format_label_encoder = joblib.load(
     MODELS_DIR / "format_label_encoder.joblib"
 )
 
+has_age_model = joblib.load(
+    MODELS_DIR / "has_age_model.joblib"
+)
+
+age_model = joblib.load(
+    MODELS_DIR / "age_model.joblib"
+)
 # =========================
 # RUBERT
 # =========================
