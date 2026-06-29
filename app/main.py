@@ -11,6 +11,7 @@ from app.predictors.difficulty_level_predictor import predict_difficulty_level
 from app.predictors.has_format_predictor import predict_has_format
 from app.predictors.type_of_format_predictor import predict_format
 
+from app.predictors.has_category_predictor import predict_has_category
 from app.predictors.category_predictor import predict_category
 
 from app.predictors.has_age_predictor import predict_has_age
@@ -86,7 +87,15 @@ def predict(request: PredictRequest):
     # CATEGORY
     # =========================
 
-    category_result = predict_category(text)
+    has_category_result = predict_has_category(text)
+
+    if has_category_result["prediction"] == 1:
+        category_result = predict_category(text)
+    else:
+        category_result = {
+            "prediction": "unknown",
+            "confidence": 0.0
+        }
 
     # =========================
     # AGE
@@ -164,5 +173,8 @@ def predict(request: PredictRequest):
             )
         },
 
-        "category": category_result
+        "category": {
+            "has_category": has_category_result,
+            "category": category_result
+        }
     }

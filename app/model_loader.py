@@ -34,18 +34,6 @@ difficulty_level_model = joblib.load(
 )
 
 # =========================
-# CATEGORY
-# =========================
-
-category_model = joblib.load(
-    MODELS_DIR / "category_model.joblib"
-)
-
-category_names = joblib.load(
-    MODELS_DIR / "category_names.joblib"
-)
-
-# =========================
 # FORMAT
 # =========================
 
