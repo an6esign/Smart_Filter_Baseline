@@ -31,28 +31,11 @@ else:
 # AGE RULES
 # =========================
 
-def normalize_text(text):
-    text = str(text).lower()
-    text = text.replace("ё", "е")
-    text = text.replace("\xa0", " ")
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+def normalize_text(text: str) -> str:
+    return str(text).lower().strip()
 
 
 def age_number_to_group(age):
-    """
-    Переводит реальный возраст клиента в возрастную категорию квеста.
-
-    Например:
-    2 года -> 6+
-    5 лет  -> 6+
-    7 лет  -> 6+
-    8 лет  -> 8+
-    10 лет -> 10+
-    12 лет -> 12+
-    18 лет -> 18+
-    """
-
     age = int(age)
 
     if age <= 7:
@@ -71,20 +54,34 @@ def age_number_to_group(age):
         return "18+"
 
 
+def is_people_context_after(text: str, end: int) -> bool:
+    """
+    Проверяем, что число относится к количеству людей, а не к возрасту.
+
+    Например:
+    8-10 чел
+    8-10 человек
+    8-10 игроков
+    """
+
+    window_after = text[end:end + 25]
+
+    people_patterns = [
+        r"\s*(чел|человек|человека|игроков|игрока|участников|персон|ребят|ребята)\b",
+    ]
+
+    return any(
+        re.match(pattern, window_after)
+        for pattern in people_patterns
+    )
+
+
 def extract_age_rule(text):
-    """
-    Правила извлечения возраста из текста.
-
-    Важно:
-    если пользователь пишет "ребенку 2 года",
-    возвращаем 6+, потому что минимальная категория — 6+.
-    """
-
     text = normalize_text(text)
-
-    # =========================
-    # 1. Явные рейтинги: 6+, 8+, 10+, 12+, 14+, 16+, 18+
-    # =========================
+    text = text.replace("ё", "е")
+    text = text.replace("\xa0", " ")
+    text = re.sub(r"\s+", " ", text)
+    text = text.strip()
 
     plus_match = re.search(
         r"\b(6|8|10|12|14|16|18)\s*\+",
@@ -94,28 +91,89 @@ def extract_age_rule(text):
     if plus_match:
         return f"{plus_match.group(1)}+"
 
-    # =========================
-    # 2. Диапазоны: 2-5 лет, 6-9 лет, 12-13 лет
-    # Берем минимальный возраст.
-    # =========================
-
-    range_match = re.search(
-        r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*(?:лет|года|год|г\.?)?\b",
+    age_list_match = re.search(
+        r"\b((?:\d{1,2}\s*(?:,|и|/|\s)\s*)+\d{1,2})\s*"
+        r"(?:лет|года|год|г\.?)\b",
         text
     )
 
-    if range_match:
-        age_1 = int(range_match.group(1))
-        age_2 = int(range_match.group(2))
+    if age_list_match:
+        age_numbers = re.findall(
+            r"\d{1,2}",
+            age_list_match.group(1)
+        )
+
+        ages = [
+            int(age)
+            for age in age_numbers
+            if 1 <= int(age) <= 100
+        ]
+
+        if ages:
+            return age_number_to_group(min(ages))
+
+    # =========================
+    # 1. Возрастной диапазон с обязательным словом "лет"
+    # 30-35 лет, 10-12 лет
+    # =========================
+
+    range_with_age_word_match = re.search(
+        r"\b(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*"
+        r"(?:лет|года|год|г\.?)\b",
+        text
+    )
+
+    if range_with_age_word_match:
+        age_1 = int(range_with_age_word_match.group(1))
+        age_2 = int(range_with_age_word_match.group(2))
 
         min_age = min(age_1, age_2)
 
         return age_number_to_group(min_age)
 
     # =========================
-    # 3. Явный возраст:
-    # 2 года, 4 года, 5 лет, 10 лет, 18 лет
+    # 2. Возрастной диапазон с контекстом перед ним
+    # возраст 30-35
+    # возрастная категория 30-35
+    # категория 30-35
     # =========================
+
+    range_with_context_match = re.search(
+        r"\b(?:возраст|возраста|возрастная\s+категория|категория)\s*"
+        r"(\d{1,2})\s*[-–—]\s*(\d{1,2})\b",
+        text
+    )
+
+    if range_with_context_match:
+        age_1 = int(range_with_context_match.group(1))
+        age_2 = int(range_with_context_match.group(2))
+
+        min_age = min(age_1, age_2)
+
+        return age_number_to_group(min_age)
+
+    # =========================
+    # 3. Диапазоны словами:
+    # от 10 до 12 лет
+    # с 8 до 10 лет
+    #
+    # Важно: слово "лет" здесь лучше требовать,
+    # иначе "от 4 до 7 человек" может стать возрастом.
+    # =========================
+
+    word_range_match = re.search(
+        r"\b(?:от|с)\s*(\d{1,2})\s*до\s*(\d{1,2})\s*"
+        r"(?:лет|года|год|г\.?)\b",
+        text
+    )
+
+    if word_range_match:
+        age_1 = int(word_range_match.group(1))
+        age_2 = int(word_range_match.group(2))
+
+        min_age = min(age_1, age_2)
+
+        return age_number_to_group(min_age)
 
     age_matches = re.findall(
         r"\b(\d{1,2})\s*(?:лет|года|год|годик|годика|годиков|г\.?)\b",
@@ -123,18 +181,14 @@ def extract_age_rule(text):
     )
 
     if age_matches:
-        ages = [int(x) for x in age_matches]
+        ages = [
+            int(x)
+            for x in age_matches
+            if 1 <= int(x) <= 100
+        ]
 
-        # Если возрастов несколько, например:
-        # "дети 5 и 8 лет" — безопаснее взять минимальный возраст.
-        min_age = min(ages)
-
-        return age_number_to_group(min_age)
-
-    # =========================
-    # 4. Контекстные конструкции:
-    # ребенку 2, ребенку 5, возраст 6, детям 8
-    # =========================
+        if ages:
+            return age_number_to_group(min(ages))
 
     age_context_match = re.search(
         r"\b(?:"
@@ -149,14 +203,7 @@ def extract_age_rule(text):
     )
 
     if age_context_match:
-        age = int(age_context_match.group(1))
-
-        return age_number_to_group(age)
-
-    # =========================
-    # 5. Конструкции:
-    # от 6 лет, с 8 лет
-    # =========================
+        return age_number_to_group(int(age_context_match.group(1)))
 
     from_age_match = re.search(
         r"\b(?:от|с)\s*(\d{1,2})\s*(?:лет|года|год|г\.?)\b",
@@ -164,9 +211,7 @@ def extract_age_rule(text):
     )
 
     if from_age_match:
-        age = int(from_age_match.group(1))
-
-        return age_number_to_group(age)
+        return age_number_to_group(int(from_age_match.group(1)))
 
     return None
 
